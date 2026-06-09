@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Integration Calculator & Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #dbeafe;
+            --primary-border: #bfdbfe;
+            --bg-main: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            padding: 2rem 1rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            color: #1e293b;
+            letter-spacing: -0.025em;
+        }
+
+        header p {
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        .app-grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 960px) {
+            .app-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+        }
+
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 1rem;
+            font-family: var(--font-sans);
+            color: var(--text-main);
+            background-color: #f8fafc;
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+            background-color: #fff;
+        }
+
+        input[type="text"].error {
+            border-color: #ef4444;
+            background-color: #fef2f2;
+        }
+
+        .input-group-bound .label-row input[type="number"] {
+            width: 90px;
+            padding: 0.35rem 0.5rem;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 9999px;
+            background: #e2e8f0;
+            outline: none;
+            margin-top: 0.5rem;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .cheat-sheet {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            background: #f8fafc;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .cheat-sheet code {
+            font-family: var(--font-mono);
+            background: #e2e8f0;
+            padding: 0.1rem 0.25rem;
+            border-radius: 4px;
+            color: #1e293b;
+        }
+
+        .error-msg {
+            color: #ef4444;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+            display: none;
+            font-weight: 500;
+        }
+
+        /* Standardized Textbook Math Layout Display */
+        .math-display-card {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f8fafc;
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px solid var(--border-color);
+            margin-bottom: 1.5rem;
+            min-height: 100px;
+        }
+
+        .integral-container {
+            display: inline-flex;
+            position: relative;
+            padding-right: 0.75rem;
+            align-items: center;
+            user-select: none;
+        }
+
+        .integral-sign {
+            font-size: 4rem;
+            line-height: 1;
+            font-family: "Georgia", serif;
+            color: #1e293b;
+        }
+
+        .bound-sup {
+            position: absolute;
+            top: -2px;
+            left: 1.6rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: var(--font-mono);
+        }
+
+        .bound-inf {
+            position: absolute;
+            bottom: -2px;
+            left: 1.3rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: var(--font-mono);
+        }
+
+        .formula-body {
+            display: flex;
+            align-items: center;
+            font-size: 1.35rem;
+            font-family: var(--font-mono);
+            color: #334155;
+            flex-wrap: wrap;
+        }
+
+        .func-text {
+            font-style: italic;
+            font-family: "Georgia", serif;
+            font-weight: bold;
+            color: #1e293b;
+        }
+
+        .dx-text {
+            color: #475569;
+            margin-left: 0.25rem;
+        }
+
+        .equals {
+            margin: 0 0.75rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .result-badge {
+            font-weight: 700;
+            color: #1e3a8a;
+            background-color: var(--primary-light);
+            padding: 0.35rem 0.85rem;
+            border-radius: 8px;
+            border: 1px solid var(--primary-border);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        #plot-area {
+            width: 100%;
+            height: 550px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Integration Visualizer</h1>
+        <p>Definite integration visual tool with instant area-under-the-curve rendering</p>
+    </header>
+
+    <div class="app-grid">
+        <div class="card control-panel">
+            <div class="input-group">
+                <div class="label-row">
+                    <label for="func-input">Function f(x)</label>
+                </div>
+                <input type="text" id="func-input" value="x^2 - 1" placeholder="e.g. x^2 - 2x">
+                <div id="error-box" class="error-msg"></div>
+            </div>
+
+            <div class="input-group input-group-bound">
+                <div class="label-row">
+                    <label for="bound-a-input">Lower Bound (a)</label>
+                    <input type="number" id="bound-a-input" value="0" step="0.1">
+                </div>
+                <input type="range" id="slider-a" class="slider" min="-10" max="10" value="0" step="0.1">
+            </div>
+
+            <div class="input-group input-group-bound">
+                <div class="label-row">
+                    <label for="bound-b-input">Upper Bound (b)</label>
+                    <input type="number" id="bound-b-input" value="2" step="0.1">
+                </div>
+                <input type="range" id="slider-b" class="slider" min="-10" max="10" value="2" step="0.1">
+            </div>
+
+            <div class="cheat-sheet">
+                <strong>Syntax Rules:</strong> Use standard expressions. Exponents use <code>^</code> (e.g. <code>x^3</code>). Supported operators include: <code>sin(x)</code>, <code>cos(x)</code>, <code>tan(x)</code>, <code>sqrt(x)</code>, <code>log(x)</code>, <code>exp(x)</code>, <code>pi</code>, and <code>e</code>.
+            </div>
+        </div>
+
+        <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div class="math-display-card">
+                <div class="integral-container">
+                    <span class="integral-sign">&int;</span>
+                    <span class="bound-sup" id="math-b">2</span>
+                    <span class="bound-inf" id="math-a">0</span>
+                </div>
+                <div class="formula-body">
+                    <span>(<span class="func-text" id="math-f">x^2 - 1</span>)<span class="dx-text">dx</span></span>
+                    <span class="equals">=</span>
+                    <span class="result-badge" id="result-val">0.66667</span>
+                </div>
+            </div>
+
+            <div id="plot-area"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Elements DOM Access
+    const funcInput = document.getElementById('func-input');
+    const boundAInput = document.getElementById('bound-a-input');
+    const boundBInput = document.getElementById('bound-b-input');
+    const sliderA = document.getElementById('slider-a');
+    const sliderB = document.getElementById('slider-b');
+    const errorBox = document.getElementById('error-box');
+    
+    const mathA = document.getElementById('math-a');
+    const mathB = document.getElementById('math-b');
+    const mathF = document.getElementById('math-f');
+    const resultVal = document.getElementById('result-val');
+
+    let compiledFormula = null;
+
+    // Numerical Integration Implementation (High-Precision Composite Simpson's Rule)
+    function computeSimpsonIntegral(f, startVal, endVal) {
+        if (startVal === endVal) return 0;
+        
+        let directionSign = 1;
+        let a = startVal;
+        let b = endVal;
+        
+        if (startVal > endVal) {
+            a = endVal;
+            b = startVal;
+            directionSign = -1;
+        }
+
+        const n = 4000; // Must be an even subdivision count
+        const h = (b - a) / n;
+        let integrationSum = f(a) + f(b);
+
+        for (let i = 1; i < n; i++) {
+            const currentX = a + i * h;
+            const currentY = f(currentX);
+            
+            if (isNaN(currentY) || !isFinite(currentY)) continue;
+
+            if (i % 2 === 0) {
+                integrationSum += 2 * currentY;
+            } else {
+                integrationSum += 4 * currentY;
+            }
+        }
+
+        const calculatedArea = directionSign * (integrationSum * h / 3);
+        return calculatedArea;
+    }
+
+    // Safely evaluate standard math rules handling non-reals
+    function safeEvaluate(xVal) {
+        if (!compiledFormula) return NaN;
+        try {
+            let value = compiledFormula.evaluate({ x: xVal });
+            if (typeof value === 'object' && value.isComplex) {
+                return NaN; 
+            }
+            return typeof value === 'number' ? value : NaN;
+        } catch (e) {
+            return NaN;
+        }
+    }
+
+    // Dynamic slider optimization if inputs exceed standard view limitations
+    function adjustSliderRangeLimits(value, targetedSlider) {
+        const num = parseFloat(value);
+        if (!isNaN(num)) {
+            if (num < parseFloat(targetedSlider.min)) {
+                targetedSlider.min = Math.floor(num - 4);
+            }
+            if (num > parseFloat(targetedSlider.max)) {
+                targetedSlider.max = Math.ceil(num + 4);
+            }
+        }
+    }
+
+    // Primary Core Update Routine
+    function pipelineUpdate() {
+        const formulaStr = funcInput.value.trim();
+        const a = parseFloat(boundAInput.value) || 0;
+        const b = parseFloat(boundBInput.value) || 0;
+
+        // Reset errors
+        funcInput.classList.remove('error');
+        errorBox.style.display = 'none';
+
+        if (!formulaStr) return;
+
+        try {
+            const parsedTree = math.parse(formulaStr);
+            compiledFormula = parsedTree.compile();
+            
+            // Initial validation check
+            compiledFormula.evaluate({ x: 1 });
+        } catch (err) {
+            funcInput.classList.add('error');
+            errorBox.textContent = "Parsing Error: " + err.message;
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        // Keep sliders tracked to fields
+        adjustSliderRangeLimits(a, sliderA);
+        adjustSliderRangeLimits(b, sliderB);
+
+        // Process Area Calculations
+        const integrationResult = computeSimpsonIntegral(safeEvaluate, a, b);
+        
+        // Output formatting rules updates
+        if (isNaN(integrationResult) || !isFinite(integrationResult)) {
+            resultVal.textContent = "Undefined / Diverges";
+        } else {
+            // Limits formatting floating decimals clean look
+            resultVal.textContent = Number(integrationResult.toFixed(5)).toString();
+        }
+
+        mathA.textContent = Number(a.toFixed(3)).toString();
+        mathB.textContent = Number(b.toFixed(3)).toString();
+        mathF.textContent = formulaStr;
+
+        renderGraphics(a, b);
+    }
+
+    // Visual Chart Rendering Sequence using Plotly Engine
+    function renderGraphics(a, b) {
+        // Automatically scale horizontal viewport framing around targeted integration domain
+        let xMinLimit = Math.min(a, b) - 3;
+        let xMaxLimit = Math.max(a, b) + 3;
+        
+        if (xMaxLimit - xMinLimit < 10) {
+            const centerOffset = (xMinLimit + xMaxLimit) / 2;
+            xMinLimit = centerOffset - 5;
+            xMaxLimit = centerOffset + 5;
+        }
+
+        const functionPointsCount = 1200;
+        const incrementalStep = (xMaxLimit - xMinLimit) / functionPointsCount;
+
+        const curveXCoordinates = [];
+        const curveYCoordinates = [];
+
+        // Build continuous curves values array
+        for (let i = 0; i <= functionPointsCount; i++) {
+            const currentX = xMinLimit + i * incrementalStep;
+            const currentY = safeEvaluate(currentX);
+
+            curveXCoordinates.push(currentX);
+            if (!isNaN(currentY) && isFinite(currentY)) {
+                curveYCoordinates.push(currentY);
+            } else {
+                curveYCoordinates.push(null); // High precision break hook for asymptotes (e.g. 1/x)
+            }
+        }
+
+        // Build dynamic bounded shading grid profile coordinates arrays
+        const fillGridX = [];
+        const fillGridY = [];
+        const shadeBoundStart = Math.min(a, b);
+        const shadeBoundEnd = Math.max(a, b);
+        const shadePointsCount = 600;
+        const sliceWidth = (shadeBoundEnd - shadeBoundStart) / shadePointsCount;
+
+        for (let i = 0; i <= shadePointsCount; i++) {
+            const currentX = shadeBoundStart + i * sliceWidth;
+            const currentY = safeEvaluate(currentX);
+            if (!isNaN(currentY) && isFinite(currentY)) {
+                fillGridX.push(currentX);
+                fillGridY.push(currentY);
+            }
+        }
+
+        // Primary Function Curve Trace Parameters
+        const traceCurveLine = {
+            x: curveXCoordinates,
+            y: curveYCoordinates,
+            type: 'scatter',
+            mode: 'lines',
+            name: 'f(x)',
+            line: { color: '#2563eb', width: 3.5 },
+            hoverinfo: 'x+y'
+        };
+
+        // Bounded Definite Integral Shading Region Trace Parameters
+        const traceAreaFill = {
+            x: fillGridX,
+            y: fillGridY,
+            type: 'scatter',
+            mode: 'lines',
+            name: 'Definite Integral Area',
+            fill: 'tozeroy', // Fills trace paths lines back baseline axis accurately
+            fillcolor: 'rgba(37, 99, 235, 0.22)',
+            line: { color: 'transparent' },
+            hoverinfo: 'skip'
+        };
+
+        const chartLayoutConfiguration = {
+            margin: { t: 15, b: 40, l: 50, r: 20 },
+            xaxis: {
+                range: [xMinLimit, xMaxLimit],
+                gridcolor: '#e2e8f0',
+                zerolinecolor: '#64748b',
+                zerolinewidth: 2,
+                fixedrange: false
+            },
+            yaxis: {
+                gridcolor: '#e2e8f0',
+                zerolinecolor: '#64748b',
+                zerolinewidth: 2,
+                autorange: true,
+                fixedrange: false
+            },
+            showlegend: false,
+            hovermode: 'closest',
+            plot_bgcolor: '#ffffff',
+            paper_bgcolor: '#ffffff'
+        };
+
+        const runtimeEngineControls = {
+            responsive: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: ['select2d', 'lasso2d', 'toggleSpikelines', 'hoverCompareCartesian']
+        };
+
+        Plotly.newPlot('plot-area', [traceAreaFill, traceCurveLine], chartLayoutConfiguration, runtimeEngineControls);
+    }
+
+    // Bidirectional Event Binding Matrix Architecture
+    boundAInput.addEventListener('input', () => {
+        sliderA.value = boundAInput.value;
+        pipelineUpdate();
+    });
+    sliderA.addEventListener('input', () => {
+        boundAInput.value = sliderA.value;
+        pipelineUpdate();
+    });
+
+    boundBInput.addEventListener('input', () => {
+        sliderB.value = boundBInput.value;
+        pipelineUpdate();
+    });
+    sliderB.addEventListener('input', () => {
+        boundBInput.value = sliderB.value;
+        pipelineUpdate();
+    });
+
+    funcInput.addEventListener('input', pipelineUpdate);
+
+    // Bootstrap Initialization Trigger Sequence on Launch
+    pipelineUpdate();
+</script>
+
+</body>
+</html>
